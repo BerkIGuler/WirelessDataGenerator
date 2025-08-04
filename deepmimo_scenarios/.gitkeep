@@ -1,0 +1,5 @@
+# This file ensures the deepmimo_scenarios directory is tracked in git
+# while the actual scenario data files are ignored via .gitignore
+# 
+# Directory purpose: Storage for downloaded DeepMIMO scenario data files (.mat files)
+# Files in this directory are large and should not be committed to version control 

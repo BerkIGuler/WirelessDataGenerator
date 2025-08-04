@@ -1,0 +1,5 @@
+# This file ensures the plots directory is tracked in git
+# while the actual plot files are ignored via .gitignore
+#
+# Directory purpose: Storage for generated visualization plots (PNG files)
+# Files in this directory are generated outputs and should not be committed to version control 

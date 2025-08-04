@@ -87,10 +87,15 @@ dmypy.json
 # pytype static type analyzer
 .pytype/
 
-# DeepMIMO specific large data directories
-deepmimo_scenarios/
-processed_channels/
-plots/
+# DeepMIMO specific large data directories - ignore contents but keep .gitkeep
+deepmimo_scenarios/*
+!deepmimo_scenarios/.gitkeep
+
+processed_channels/*
+!processed_channels/.gitkeep
+
+plots/*
+!plots/.gitkeep
 
 # OS generated files
 .DS_Store
