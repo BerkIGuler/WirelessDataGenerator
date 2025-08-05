@@ -1,17 +1,24 @@
 """
 Batch Processing Script for DeepMIMO Scenarios
 
-This script processes all downloaded DeepMIMO scenarios and saves the channel data
+This script processes downloaded DeepMIMO scenarios and saves the channel data
 for each base station as individual .npz files with metadata.
+
+Processes:
+- All city scenarios (excluding LWM training scenarios)
+- Additional specific scenarios: asu_campus_3p5, boston5g_3p5
+- Automatically detects and processes appropriate dataset types
 
 Features:
 - Uses same channel parameters as load_sample_deepmimo_scenario.py
 - Applies filtering (remove inactive users) and scaling (10^6)
 - Saves as <scenario_name>_bs<index>.npz
 - Includes LOS, user positions, BS positions, and channels
-- Skips existing files
+- Skips existing files to avoid reprocessing
 - Memory-efficient processing (one scenario at a time)
 - Progress tracking with tqdm
+- Handles both MacroDataset (multiple BS) and Dataset (single BS) types
+- Comprehensive error reporting and continues on failures
 """
 
 import deepmimo as dm
@@ -76,7 +83,7 @@ def setup_output_directory():
 
 def get_scenario_list():
     """
-    Get list of all scenarios in the scenarios directory.
+    Get list of scenarios to process, including city scenarios plus specific additional scenarios.
     
     Returns:
         list: List of scenario names (directory names)
@@ -85,11 +92,41 @@ def get_scenario_list():
         print(f"Error: Scenarios directory not found: {SCENARIOS_DIR}")
         return []
     
-    scenarios = [d.name for d in SCENARIOS_DIR.iterdir() if d.is_dir()]
-    scenarios.sort()  # Sort for consistent processing order
+    # Get all available scenarios
+    all_scenarios = [d.name for d in SCENARIOS_DIR.iterdir() if d.is_dir()]
     
-    print(f"Found {len(scenarios)} scenarios in {SCENARIOS_DIR}")
-    return scenarios
+    # Filter for scenarios we want to process
+    target_scenarios = []
+    
+    # Add all city scenarios (excluding lwm training scenarios)
+    city_scenarios = [s for s in all_scenarios if "city" in s and not s.endswith("lwm")]
+    target_scenarios.extend(city_scenarios)
+    
+    # Add specific additional scenarios
+    additional_scenarios = ["asu_campus_3p5", "boston5g_3p5"]
+    for scenario in additional_scenarios:
+        # Check for exact match or scenarios containing these names
+        matching_scenarios = [s for s in all_scenarios if scenario in s.lower()]
+        target_scenarios.extend(matching_scenarios)
+    
+    # Remove duplicates and sort
+    target_scenarios = sorted(list(set(target_scenarios)))
+    
+    print(f"Found {len(all_scenarios)} total scenarios in {SCENARIOS_DIR}")
+    print(f"Target scenarios for processing: {len(target_scenarios)}")
+    
+    # Show breakdown
+    city_count = len([s for s in target_scenarios if "city" in s])
+    additional_count = len(target_scenarios) - city_count
+    
+    print(f"  - City scenarios: {city_count}")
+    print(f"  - Additional scenarios (asu_campus, boston): {additional_count}")
+    
+    if additional_count > 0:
+        additional_found = [s for s in target_scenarios if not "city" in s]
+        print(f"  - Additional scenarios found: {additional_found}")
+    
+    return target_scenarios
 
 
 def get_output_filename(scenario_name, bs_index):
@@ -318,6 +355,89 @@ def process_single_scenario(scenario_name, ch_params):
             pass
 
 
+def check_processed_scenarios(scenarios):
+    """
+    Check which scenarios are already completely processed.
+    
+    Args:
+        scenarios (list): List of scenario names to check
+        
+    Returns:
+        dict: Information about processed vs unprocessed scenarios
+    """
+    if not OUTPUT_DIR.exists():
+        return {
+            'fully_processed': [],
+            'partially_processed': [],
+            'unprocessed': scenarios,
+            'total_files_found': 0
+        }
+    
+    fully_processed = []
+    partially_processed = []
+    unprocessed = []
+    total_files_found = 0
+    
+    print("Checking for already processed scenarios...")
+    
+    for scenario in scenarios:
+        # Find all files for this scenario
+        scenario_files = list(OUTPUT_DIR.glob(f"{scenario}_bs*.npz"))
+        total_files_found += len(scenario_files)
+        
+        if len(scenario_files) == 0:
+            unprocessed.append(scenario)
+        else:
+            # For now, we'll consider any scenario with files as at least partially processed
+            # We could enhance this later to check if all expected base stations are present
+            partially_processed.append((scenario, len(scenario_files)))
+    
+    return {
+        'fully_processed': fully_processed,
+        'partially_processed': partially_processed,
+        'unprocessed': unprocessed,
+        'total_files_found': total_files_found
+    }
+
+
+def display_processing_status(scenarios, status_info):
+    """
+    Display the current processing status of scenarios.
+    
+    Args:
+        scenarios (list): List of all target scenarios
+        status_info (dict): Processing status information
+    """
+    print("\n" + "=" * 60)
+    print("CURRENT PROCESSING STATUS")
+    print("=" * 60)
+    
+    total_scenarios = len(scenarios)
+    unprocessed_count = len(status_info['unprocessed'])
+    partially_processed_count = len(status_info['partially_processed'])
+    
+    print(f"📊 Total target scenarios: {total_scenarios}")
+    print(f"✅ Scenarios with processed files: {partially_processed_count}")
+    print(f"⏳ Scenarios not yet processed: {unprocessed_count}")
+    print(f"📁 Total processed files found: {status_info['total_files_found']}")
+    
+    if status_info['partially_processed']:
+        print(f"\n✅ Scenarios with existing processed files:")
+        for scenario, file_count in status_info['partially_processed']:
+            print(f"   - {scenario}: {file_count} files")
+    
+    if status_info['unprocessed']:
+        print(f"\n⏳ Scenarios to be processed:")
+        for i, scenario in enumerate(status_info['unprocessed'][:10], 1):
+            print(f"   {i:2d}. {scenario}")
+        
+        if len(status_info['unprocessed']) > 10:
+            print(f"   ... and {len(status_info['unprocessed']) - 10} more")
+    
+    print(f"\n💡 Note: Individual base station files will be checked during processing")
+    print(f"💡 Existing files will be skipped to avoid reprocessing")
+
+
 # =============================================================================
 # Main Processing Function
 # =============================================================================
@@ -339,6 +459,10 @@ def main():
     print("\nConfiguring channel parameters...")
     ch_params = setup_channel_parameters()
     print("Channel parameters configured.")
+    
+    # Check processing status
+    status_info = check_processed_scenarios(scenarios)
+    display_processing_status(scenarios, status_info)
     
     # Process scenarios
     print(f"\nProcessing {len(scenarios)} scenarios...")
