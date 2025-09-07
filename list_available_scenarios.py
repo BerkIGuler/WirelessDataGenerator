@@ -30,7 +30,7 @@ def query_available_scenarios():
     
     # Query for all sub6 GHz scenarios with Insite raytracer
     query = {
-        "bands": ["sub6"],
+        "bands": ["mmW"],
         "raytracerName": "Insite", 
         "environment": "outdoor",
     }
