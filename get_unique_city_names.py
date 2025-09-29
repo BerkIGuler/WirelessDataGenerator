@@ -59,7 +59,9 @@ def fix_city_spelling_and_capitalization(city_name):
         'hong kong': 'Hong Kong',
         'cape town': 'Cape Town',
         'sandiego': 'San Diego',
-        'gurbchen': 'Gurbchen'
+        'gurbchen': 'Gurbchen',
+        'Losangeles': 'Los Angeles',
+        'Asu Campus': 'ASU Campus',
     }
     
     # Check if we have a correction for this city
@@ -111,11 +113,11 @@ def main():
     print("Extracting unique city names from processed_channels directories...")
     
     # Process pretrain directory
-    pretrain_dir = Path("processed_channels/pretrain")
+    pretrain_dir = Path("processed_channels/sub6/pretrain")
     pretrain_cities = process_directory("pretrain", pretrain_dir)
     
     # Process test directory
-    test_dir = Path("processed_channels/test")
+    test_dir = Path("processed_channels/sub6/task/test")
     test_cities = process_directory("test", test_dir)
     
     # Show summary
